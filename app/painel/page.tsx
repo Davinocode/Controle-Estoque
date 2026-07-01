@@ -664,7 +664,8 @@ export default function PainelPage() {
 
   useEffect(() => {
     const p = localStorage.getItem('persona')
-    if (!p || p !== 'Gestor') {
+    const auth = localStorage.getItem('gestor_auth')
+    if (!p || p !== 'Gestor' || auth !== '1') {
       router.push('/')
     }
   }, [router])
