@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Estoque {
+  codigo    String     @id
+  nome      String?
+  tipo      String
+  ciclos    Ciclo[]
+  contagens Contagem[]
+}
+
+model Item {
+  sku           String               @id
+  nome          String
+  categoria     String
+  precoCusto    Float
+  contagens     Contagem[]
+  itensContados ItemContadoNoCiclo[]
+}
+
+model Ciclo {
+  id            Int                  @id @default(autoincrement())
+  estoqueCodigo String
+  numero        Int
+  iniciadoEm    DateTime             @default(now())
+  encerradoEm   DateTime?
+  estoque       Estoque              @relation(fields: [estoqueCodigo], references: [codigo])
+  itensContados ItemContadoNoCiclo[]
+  contagens     Contagem[]
+}
+
+model ItemContadoNoCiclo {
+  cicloId Int
+  sku     String
+  ciclo   Ciclo  @relation(fields: [cicloId], references: [id])
+  item    Item   @relation(fields: [sku], references: [sku])
+
+  @@id([cicloId, sku])
+}
+
+model Contagem {
+  id               Int      @id @default(autoincrement())
+  dataHora         DateTime @default(now())
+  estoqueCodigo    String
+  sku              String
+  contador         String
+  saldoContado     Int
+  numeroCiclo      Int
+  cicloId          Int
+  saldoSistema     Int?
+  divergencia      Int?
+  valorDivergencia Float?
+  status           String   @default("pendente_conferencia")
+  estoque          Estoque  @relation(fields: [estoqueCodigo], references: [codigo])
+  item             Item     @relation(fields: [sku], references: [sku])
+  ciclo            Ciclo    @relation(fields: [cicloId], references: [id])
+}
