@@ -60,4 +60,22 @@ model Contagem {
   estoque          Estoque  @relation(fields: [estoqueCodigo], references: [codigo])
   item             Item     @relation(fields: [sku], references: [sku])
   ciclo            Ciclo    @relation(fields: [cicloId], references: [id])
+  edicoes          EdicaoContagem[]
+}
+
+// Histórico de correções do saldo contado (auditoria). A especificação original tratava
+// a Contagem como log imutável; passamos a permitir a correção do saldoContado pelo gestor
+// (quando alguém conta errado e sobe no app), mas registrando cada alteração aqui:
+// valor antigo, valor novo, quem editou e quando. Assim mantém-se a rastreabilidade.
+model EdicaoContagem {
+  id          Int      @id @default(autoincrement())
+  contagemId  Int
+  saldoAntigo Int
+  saldoNovo   Int
+  editadoPor  String
+  motivo      String?
+  editadoEm   DateTime @default(now())
+  contagem    Contagem @relation(fields: [contagemId], references: [id])
+
+  @@index([contagemId])
 }

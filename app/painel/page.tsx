@@ -10,6 +10,14 @@ type Tab = 'visao-geral' | 'lista' | 'conferencia' | 'produtos'
 
 type Estoque = { codigo: string; nome: string | null; tipo: string }
 type Item = { sku: string; nome: string; categoria: string; precoCusto: number }
+type Edicao = {
+  id: number
+  saldoAntigo: number
+  saldoNovo: number
+  editadoPor: string
+  motivo: string | null
+  editadoEm: string
+}
 type Contagem = {
   id: number
   dataHora: string
@@ -24,6 +32,7 @@ type Contagem = {
   status: string
   item: Item
   estoque: Estoque
+  edicoes?: Edicao[]
 }
 type DadosPainel = {
   estoque: Estoque
@@ -256,16 +265,135 @@ function ListaContagens() {
             </h3>
             <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
               {lista.map((c) => (
-                <div key={c.id} className="px-4 py-3">
-                  <p className="font-medium text-gray-900 text-sm">{c.item.nome}</p>
-                  <p className="text-sm text-gray-600">Saldo = <strong>{c.saldoContado}</strong></p>
-                  <p className="text-xs text-gray-400">Contado por: {c.contador} · {formatData(c.dataHora)}</p>
-                </div>
+                <LinhaContagem key={c.id} contagem={c} onEditado={carregar} />
               ))}
             </div>
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ─── Linha da lista de contagens (com correção do saldo contado) ──────────────
+
+function LinhaContagem({ contagem, onEditado }: { contagem: Contagem; onEditado: () => void }) {
+  const [editando, setEditando] = useState(false)
+  const [valor, setValor] = useState(String(contagem.saldoContado))
+  const [motivo, setMotivo] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  const conferida = contagem.status === 'conferido'
+  const foiCorrigida = (contagem.edicoes?.length ?? 0) > 0
+  const saldoOriginal = foiCorrigida ? contagem.edicoes![0].saldoAntigo : null
+
+  function abrir() {
+    setValor(String(contagem.saldoContado))
+    setMotivo('')
+    setErro('')
+    setEditando(true)
+  }
+
+  async function salvar() {
+    const novo = parseInt(valor)
+    if (Number.isNaN(novo) || novo < 0) {
+      setErro('Informe uma quantidade válida')
+      return
+    }
+    setSalvando(true)
+    setErro('')
+    try {
+      const res = await fetch(`/api/contagens/${contagem.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saldoContado: novo, motivo, editadoPor: 'Gestor' }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setErro(err.error ?? 'Erro ao salvar')
+        return
+      }
+      setEditando(false)
+      onEditado()
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  if (editando) {
+    return (
+      <div className="px-4 py-3 bg-blue-50">
+        <p className="font-medium text-gray-900 text-sm mb-2">{contagem.item.nome}</p>
+        <div className="flex gap-2 items-center mb-2">
+          <label className="text-xs text-gray-500 whitespace-nowrap">Saldo contado:</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            autoFocus
+            className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+          />
+        </div>
+        <input
+          type="text"
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          placeholder="Motivo da correção (opcional)"
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs mb-2 focus:border-blue-400 focus:outline-none"
+        />
+        {erro && <p className="text-red-600 text-xs mb-2">{erro}</p>}
+        <div className="flex gap-2">
+          <button
+            onClick={salvar}
+            disabled={salvando}
+            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium disabled:opacity-40 hover:bg-blue-700 transition-colors"
+          >
+            {salvando ? 'Salvando...' : 'Salvar'}
+          </button>
+          <button
+            onClick={() => setEditando(false)}
+            disabled={salvando}
+            className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-4 py-3 flex items-start justify-between gap-2">
+      <div className="min-w-0">
+        <p className="font-medium text-gray-900 text-sm">{contagem.item.nome}</p>
+        <p className="text-sm text-gray-600">
+          Saldo = <strong>{contagem.saldoContado}</strong>
+          {foiCorrigida && (
+            <span className="ml-2 text-xs text-amber-600" title={`Valor original: ${saldoOriginal}`}>
+              ✏️ corrigida (era {saldoOriginal})
+            </span>
+          )}
+        </p>
+        <p className="text-xs text-gray-400">Contado por: {contagem.contador} · {formatData(contagem.dataHora)}</p>
+      </div>
+      {conferida ? (
+        <span
+          className="text-xs text-gray-400 whitespace-nowrap shrink-0"
+          title="Já conferida e enviada à planilha — não pode ser editada"
+        >
+          🔒 conferida
+        </span>
+      ) : (
+        <button
+          onClick={abrir}
+          className="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors shrink-0"
+        >
+          Editar
+        </button>
+      )}
     </div>
   )
 }

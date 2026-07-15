@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   const contagens = await prisma.contagem.findMany({
     where,
-    include: { item: true, estoque: true },
+    include: { item: true, estoque: true, edicoes: { orderBy: { editadoEm: 'asc' } } },
     orderBy: { dataHora: 'desc' },
     take: 200,
   })
