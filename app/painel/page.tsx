@@ -418,13 +418,17 @@ function Conferencia() {
 
   useEffect(() => { carregar() }, [carregar])
 
-  const totalDivergencia = conferidos.reduce((s, c) => s + (c.valorDivergencia ?? 0), 0)
+  // Falta e sobra são contabilizadas SEPARADAMENTE — uma sobra nunca anula uma falta.
+  const faltas = conferidos.filter((c) => (c.divergencia ?? 0) < 0)
+  const sobras = conferidos.filter((c) => (c.divergencia ?? 0) > 0)
+  const totalFaltou = faltas.reduce((s, c) => s + Math.abs(c.valorDivergencia ?? 0), 0)
+  const totalSobrou = sobras.reduce((s, c) => s + (c.valorDivergencia ?? 0), 0)
 
   if (carregando) return <p className="text-center text-gray-400 py-8">Carregando...</p>
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
           <p className="text-xl font-bold text-amber-700">{pendentes.length}</p>
           <p className="text-xs text-amber-600">Pendentes</p>
@@ -434,8 +438,12 @@ function Conferencia() {
           <p className="text-xs text-green-600">Conferidos</p>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
-          <p className="text-xl font-bold text-red-700">{formatMoeda(totalDivergencia)}</p>
-          <p className="text-xs text-red-600">Divergência</p>
+          <p className="text-lg font-bold text-red-700">{formatMoeda(totalFaltou)}</p>
+          <p className="text-xs text-red-600">Faltou ({faltas.length})</p>
+        </div>
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
+          <p className="text-lg font-bold text-blue-700">{formatMoeda(totalSobrou)}</p>
+          <p className="text-xs text-blue-600">Sobrou ({sobras.length})</p>
         </div>
       </div>
 
@@ -474,24 +482,26 @@ function Conferencia() {
           {conferidos.length === 0 && (
             <p className="text-center text-gray-400 py-8">Nenhuma contagem conferida</p>
           )}
-          {conferidos.map((c) => (
-            <div
-              key={c.id}
-              className={`bg-white rounded-xl border p-4 ${
-                (c.divergencia ?? 0) !== 0 ? 'border-red-200' : 'border-gray-200'
-              }`}
-            >
-              <p className="font-semibold text-gray-900 text-sm">{c.item.nome}</p>
-              <p className="text-xs text-gray-400">{nomeEstoque(c.estoque)} · {c.contador} · {formatData(c.dataHora)}</p>
-              <div className="flex gap-4 mt-2 text-sm">
-                <span className="text-gray-600">Contado: <strong>{c.saldoContado}</strong></span>
-                <span className="text-gray-600">Sistema: <strong>{c.saldoSistema}</strong></span>
-                <span className={`font-semibold ${(c.divergencia ?? 0) !== 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  Dif: {c.divergencia ?? 0} ({formatMoeda(c.valorDivergencia ?? 0)})
-                </span>
+          {conferidos.map((c) => {
+            const div = c.divergencia ?? 0
+            const tipo = div < 0 ? 'falta' : div > 0 ? 'sobra' : 'ok'
+            const cor = tipo === 'falta' ? 'text-red-600' : tipo === 'sobra' ? 'text-blue-600' : 'text-green-600'
+            const borda = tipo === 'falta' ? 'border-red-200' : tipo === 'sobra' ? 'border-blue-200' : 'border-gray-200'
+            const rotulo = tipo === 'falta' ? 'Faltou' : tipo === 'sobra' ? 'Sobrou' : 'OK'
+            return (
+              <div key={c.id} className={`bg-white rounded-xl border p-4 ${borda}`}>
+                <p className="font-semibold text-gray-900 text-sm">{c.item.nome}</p>
+                <p className="text-xs text-gray-400">{nomeEstoque(c.estoque)} · {c.contador} · {formatData(c.dataHora)}</p>
+                <div className="flex gap-4 mt-2 text-sm flex-wrap">
+                  <span className="text-gray-600">Contado: <strong>{c.saldoContado}</strong></span>
+                  <span className="text-gray-600">Sistema: <strong>{c.saldoSistema}</strong></span>
+                  <span className={`font-semibold ${cor}`}>
+                    {rotulo}: {div > 0 ? '+' : ''}{div} ({formatMoeda(c.valorDivergencia ?? 0)})
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
