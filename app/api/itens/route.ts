@@ -1,21 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   const busca = request.nextUrl.searchParams.get('busca')
 
-  if (busca) {
-    const itens = await prisma.item.findMany({
-      where: {
-        OR: [
-          { nome: { contains: busca } },
-          { sku: { contains: busca } },
-          { categoria: { contains: busca } },
-        ],
-      },
-      orderBy: { nome: 'asc' },
-      take: 20,
+  if (busca && busca.trim()) {
+    // Busca tolerante: ignora maiúsculas/minúsculas (ILIKE), ignora acentos
+    // (unaccent) e aceita várias palavras em qualquer ordem — cada palavra
+    // digitada precisa aparecer em nome, SKU ou categoria.
+    // Ex.: "osmocolor montana" acha "OSMOCOLOR NATURAL UV GOLD 3,6LT MONTANA";
+    //      "acrilico" acha tanto "ACRILICO" quanto "ACRÍLICO".
+    const tokens = busca.trim().split(/\s+/).slice(0, 6)
+    const condicoes = tokens.map((t) => {
+      const like = `%${t}%`
+      return Prisma.sql`(unaccent("nome") ILIKE unaccent(${like}) OR unaccent("sku") ILIKE unaccent(${like}) OR unaccent("categoria") ILIKE unaccent(${like}))`
     })
+    const where = Prisma.join(condicoes, ' AND ')
+    const itens = await prisma.$queryRaw<
+      { sku: string; nome: string; categoria: string; precoCusto: number }[]
+    >(Prisma.sql`
+      SELECT "sku", "nome", "categoria", "precoCusto"
+      FROM "Item"
+      WHERE ${where}
+      ORDER BY "nome" ASC
+      LIMIT 30
+    `)
     return NextResponse.json(itens)
   }
 
