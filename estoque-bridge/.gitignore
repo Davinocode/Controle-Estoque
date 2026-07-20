@@ -1,0 +1,11 @@
+node_modules/
+npm-debug.log*
+.env
+.env.*
+# scripts de diagnóstico/segredos nunca versionados
+poll-*.js
+verify-*.js
+check*.js
+status-*.js
+_*.txt
+*.local

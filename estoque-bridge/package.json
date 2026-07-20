@@ -1,0 +1,16 @@
+{
+  "name": "estoque-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cron que espelha a planilha do app (native Sheet) no arquivo .xlsx lido pelo dashboard.",
+  "scripts": {
+    "start": "node bridge.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "google-auth-library": "^10.9.0"
+  }
+}
